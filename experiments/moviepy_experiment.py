@@ -1,5 +1,5 @@
 # https://github.com/Zulko/moviepy
-# use: python moviepy_test.py -i https://videoURL.mp4 -s 1000 -e 1005 -o ./test.webm -fr 30
+# use: python moviepy_experiment.py -i https://videoURL.mp4 -s 1000 -e 1005 -o ./test.webm -fr 30
 
 from moviepy.editor import *
 import argparse
