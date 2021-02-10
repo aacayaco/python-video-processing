@@ -29,4 +29,5 @@ if __name__ == "__main__":
     print("Creating a subclip...")
     video_clip = video.subclip(int(args.start),int(args.end))
     print("Writing the output file to:", output_path)
-    video_clip.write_videofile(output_path,fps=int(args.fps))
+    video_clip.write_videofile(output_path, fps=int(args.fps), verbose=False, logger=None)
+    print("Process completed...")
