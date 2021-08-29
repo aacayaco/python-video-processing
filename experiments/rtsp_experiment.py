@@ -9,6 +9,7 @@ from requests_toolbelt.multipart.encoder import MultipartEncoder
 import json
 
 """
+    Original code from: https://kevinsaye.wordpress.com/2019/06/11/python-using-opencv-to-process-rtsp-video-with-threads/
     Because this reads from an RTSP source, we must keep reading the frames else we will get behind
     in the code below, if not "is_inferring", then we spin a thread to do an inferrence for the image to a remote REST server
 """
