@@ -15,8 +15,8 @@ import json
 """
  
 RTSPURL                 = 'rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov'
-INFERENCE_SERVER_URL    = 'http://localhost:8000/detect/'
-timeout                 = 6     # timeout to connect to the scoring URL
+INFERENCE_SERVER_URL    = 'http://localhost:8000/detect/' # https://github.com/WelkinU/yolov5-fastapi-demo.git
+timeout                 = 6 # timeout to connect to the scoring URL
 is_inferring            = False
  
 def infer_image(frame):
@@ -24,7 +24,7 @@ def infer_image(frame):
     is_inferring=True
     try:
         image = Image.fromarray(frame)
-        stream = io.BytesIO()       # creating a steam object to not write to the disk
+        stream = io.BytesIO() # creating a steam object to not write to the disk
         image.save(stream, format="JPEG")
         stream.seek(0)
         img_for_post = stream.read()
@@ -46,17 +46,17 @@ def infer_image(frame):
         }
         
         response = requests.post(INFERENCE_SERVER_URL, headers=headers, data=multipart_data, timeout=timeout).json()
-        print(response) #do something with the response from the inference server
+        print(response) # do something with the response from the inference server
     except:
         e = sys.exc_info()[0]
         print("Unexpected error with the inference: %s" % e)
     is_inferring=False
 
-#process only X frames
+# process only X frames
 limit = 20
 processing_count = 0
 running = True
-while running:         # outer loop to catch errors
+while running: # outer loop to catch errors
     try:
         video = cv2.VideoCapture(RTSPURL)
         while True: # inner loop for each frame
