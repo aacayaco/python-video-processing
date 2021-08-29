@@ -1,11 +1,13 @@
 import cv2
+import os
 import sys
-import time
+import datetime
 import requests
 import _thread
 import io
 from PIL import Image
 from requests_toolbelt.multipart.encoder import MultipartEncoder
+from termcolor import colored
 import json
 
 """
@@ -21,7 +23,7 @@ is_inferring            = False
  
 def infer_image(frame):
     global is_inferring
-    is_inferring=True
+    is_inferring = True
     try:
         image = Image.fromarray(frame)
         stream = io.BytesIO() # creating a steam object to not write to the disk
@@ -46,38 +48,74 @@ def infer_image(frame):
         }
         
         response = requests.post(INFERENCE_SERVER_URL, headers=headers, data=multipart_data, timeout=timeout).json()
-        print(response) # do something with the response from the inference server
+        
+        print("\r"+"Result: %s" % response) # do something with the response from the inference server
+        
     except:
         e = sys.exc_info()[0]
         print("Unexpected error with the inference: %s" % e)
-    is_inferring=False
+    is_inferring = False
 
-# process only X frames
-limit = 20
-processing_count = 0
-running = True
-while running: # outer loop to catch errors
-    try:
-        video = cv2.VideoCapture(RTSPURL)
-        while True: # inner loop for each frame
-            ret, frame = video.read()
-            if ret and is_inferring == False and processing_count < limit:
-                _thread.start_new_thread(infer_image, (frame, ))
-                processing_count += 1
-            elif processing_count >= limit:
-                # stop the stream when processing limit is reached
-                video.release()
-                running = False
-                break
-            elif ret == False:
-                # TODO: add an exit clause here since this will retry the RTSP when any error occurs
-                video.release()
-                video = cv2.VideoCapture(RTSPURL)
-            # elif frame is not None:
-                # TODO: confirm if this is the skipped frame
-                # print("Skipping frame received, currently busy...")
-    except:
-        e = sys.exc_info()[0]
-        print("Unexpected error with prediction: %s" % e)
-        
-print("RTSP test done!")
+if __name__ == "__main__":
+    # cli coloring stuff
+    os.system('cls' if os.name == 'nt' else 'clear')
+    os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+
+    # process only X frames
+    limit = 20
+    processing_count = 0
+    running = True
+    while running: # outer loop to catch errors
+        try:
+            video = cv2.VideoCapture(RTSPURL)
+            total_frames = video.get(7) #CV_CAP_PROP_FRAME_COUNT
+            print("[INFO] Total frames: " + colored("%i","green") % total_frames)
+            # frame_offset = 8/9 # values must be between [0,1]
+            frame_offset = 0
+            start_frame = int(total_frames*frame_offset)
+            
+            print("[INFO] Starting from frame: " + colored("%i","yellow") % start_frame)
+            print("[INFO] Seeking to the selected frame...")
+            start = datetime.datetime.now()
+            video.set(1, start_frame) # test, start from calculated frame
+            # seek average time: 24 seconds
+            # TODO: confirm if bandwidth limitation or OpenCV
+            # no difference if we start from middle to near end
+            # seek time for starting before the middle frame is a bit faster
+            end = datetime.datetime.now()
+            print("[INFO] Total seek time " + colored("%s","red") % str(end-start))
+            print("[INFO] Inference loop starting...")
+            
+            while True: # inner loop for each frame
+                ret, frame = video.read()
+                if ret and is_inferring == False and processing_count < limit:
+                    _thread.start_new_thread(infer_image, (frame, ))
+                    processing_count += 1
+                    sys.stdout.write("\r" + "Processing [%i/%i] " % (processing_count, limit))
+                    if processing_count > 1:
+                        sys.stdout.write("\033[F") # back to previous line 
+                        sys.stdout.write("\033[K") # clear line
+                        
+                elif processing_count >= limit:
+                    # stop the stream when processing limit is reached
+                    running = False
+                    break
+                elif ret == False:
+                    # TODO: add an exit clause here since this will retry the RTSP when any error occurs
+                    video.release()
+                    video = cv2.VideoCapture(RTSPURL)
+                # elif frame is not None:
+                    # TODO: confirm if this is the skipped frame
+                    # print("Skipping frame received, currently busy...")
+                if cv2.waitKey(1) == 27:
+                    running = False
+                    break
+        except:
+            e = sys.exc_info()[0]
+            print(colored("[ERROR] ","red") + "%s" % e)
+            running = False
+
+    if video is not None:
+        print("[INFO] Releasing the RTSP object...")
+        video.release()
+    print("[INFO] RTSP test done!")
