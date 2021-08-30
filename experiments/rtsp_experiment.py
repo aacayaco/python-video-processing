@@ -9,6 +9,7 @@ from PIL import Image
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 from termcolor import colored
 import json
+from moviepy.editor import *
 
 """
     Original code from: https://kevinsaye.wordpress.com/2019/06/11/python-using-opencv-to-process-rtsp-video-with-threads/
@@ -17,6 +18,7 @@ import json
 """
  
 RTSPURL                 = 'rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov'
+URL                     = 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
 INFERENCE_SERVER_URL    = 'http://localhost:8000/detect/' # https://github.com/WelkinU/yolov5-fastapi-demo.git
 timeout                 = 6 # timeout to connect to the scoring URL
 is_inferring            = False
@@ -49,7 +51,7 @@ def infer_image(frame):
         
         response = requests.post(INFERENCE_SERVER_URL, headers=headers, data=multipart_data, timeout=timeout).json()
         
-        print("\r"+"Result: %s" % response) # do something with the response from the inference server
+        print("\r"+"Result: %s          " % response) # do something with the response from the inference server
         
     except:
         e = sys.exc_info()[0]
@@ -67,17 +69,23 @@ if __name__ == "__main__":
     running = True
     while running: # outer loop to catch errors
         try:
-            video = cv2.VideoCapture(RTSPURL)
-            total_frames = video.get(7) #CV_CAP_PROP_FRAME_COUNT
+            
+            video = cv2.VideoCapture(URL)
+            
+            print('Camera {} status: {}'.format(URL, video.isOpened()))
+            total_frames = video.get(cv2.CAP_PROP_FRAME_COUNT)
+            # video.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             print("[INFO] Total frames: " + colored("%i","green") % total_frames)
-            # frame_offset = 8/9 # values must be between [0,1]
-            frame_offset = 0
+            # frame_offset = 29/30 # values must be between [0,1]
+            frame_offset = 7/10
             start_frame = int(total_frames*frame_offset)
             
             print("[INFO] Starting from frame: " + colored("%i","yellow") % start_frame)
             print("[INFO] Seeking to the selected frame...")
             start = datetime.datetime.now()
+            # video.set(cv2.CAP_PROP_POS_MSEC, 10000)
             video.set(1, start_frame) # test, start from calculated frame
+            # print("[INFO] Current frame position: ", video.get(cv2.CAP_PROP_POS_FRAMES)) # something wrong here
             # seek average time: 24 seconds
             # TODO: confirm if bandwidth limitation or OpenCV
             # no difference if we start from middle to near end
@@ -89,24 +97,29 @@ if __name__ == "__main__":
             while True: # inner loop for each frame
                 ret, frame = video.read()
                 if ret and is_inferring == False and processing_count < limit:
+                    # show only processed frames
+                    cv2.imshow("RTSP: %s" % URL, frame)
                     _thread.start_new_thread(infer_image, (frame, ))
                     processing_count += 1
-                    sys.stdout.write("\r" + "Processing [%i/%i] " % (processing_count, limit))
-                    if processing_count > 1:
-                        sys.stdout.write("\033[F") # back to previous line 
-                        sys.stdout.write("\033[K") # clear line
-                        
+                    sys.stdout.write("\rProcessing [%i/%i] " % (processing_count, limit))
+                    # if processing_count > 1:
+                    sys.stdout.write("\033[F") # back to previous line 
+                    sys.stdout.write("\033[K") # clear line
                 elif processing_count >= limit:
                     # stop the stream when processing limit is reached
                     running = False
                     break
                 elif ret == False:
                     # TODO: add an exit clause here since this will retry the RTSP when any error occurs
-                    video.release()
-                    video = cv2.VideoCapture(RTSPURL)
+                    # video.release()
+                    # video = cv2.VideoCapture(RTSPURL)
+                    running = False
+                    break
                 # elif frame is not None:
                     # TODO: confirm if this is the skipped frame
                     # print("Skipping frame received, currently busy...")
+                # if frame is not None:
+                #     cv2.imshow("RTSP: %s" % RTSPURL, frame)
                 if cv2.waitKey(1) == 27:
                     running = False
                     break
@@ -116,6 +129,6 @@ if __name__ == "__main__":
             running = False
 
     if video is not None:
-        print("[INFO] Releasing the RTSP object...")
+        print("[INFO] Releasing the RTSP capture object...")
         video.release()
     print("[INFO] RTSP test done!")
